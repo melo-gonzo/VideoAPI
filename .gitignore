@@ -1,0 +1,10 @@
+*cred*
+*pycache*
+*secret*
+*txt*
+*old*
+*other*
+motion_demo.py
+esp32.sh
+params.py
+settings.yaml
