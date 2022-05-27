@@ -171,6 +171,7 @@ class VideoStream(ABC):
 
 
 if __name__ == '__main__':
+    print('VideoAPI')
     params = yaml.safe_load(open("params.yaml", "r"))
     video_stream_params = params["video_stream_params"]
     algo_params = params["algo_params"]
