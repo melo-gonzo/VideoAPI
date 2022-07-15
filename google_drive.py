@@ -5,8 +5,11 @@ import os
 import time
 
 gauth = GoogleAuth()
+
+# gauth.LocalWebserverAuth()
 # Try to load saved client credentials
 gauth.LoadCredentialsFile("mycreds.txt")
+
 if gauth.credentials is None:
     # Authenticate if they're not there
     gauth.LocalWebserverAuth()
@@ -62,6 +65,7 @@ def clean_up_drive_files(creation_dict):
 def google_drive(image_dir, esp_folder_id):
     while True:
         try:
+            print('AOL Drive...', end='\r')
             time.sleep(1)
             upload_local_images(image_dir, esp_folder_id)
             time.sleep(1)

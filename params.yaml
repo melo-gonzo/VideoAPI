@@ -4,7 +4,7 @@ video_stream_params:
   name: HomeCamera
   resize_multiplier: 1
   storage_location: "/home/carmelo/Desktop/storage/"
-  ip: "rtsp://192.168.1.15:8554/mjpeg/1"
+  ip: "rtsp://192.168.1.19:8554/mjpeg/1"
   # Save/Display Params
   visualize: False
   save_video: False
