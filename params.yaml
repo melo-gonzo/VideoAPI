@@ -1,20 +1,21 @@
 video_stream_params:
   # Stream Params
-  algorithm: Motion
-  name: HomeCamera
+  algorithm: motion
+  name: home-cam
   resize_multiplier: 1
-  storage_location: "/home/carmelo/Desktop/storage/"
-  ip: "rtsp://192.168.1.19:8554/mjpeg/1"
+  storage_location: "/home/carmelog/Desktop/storage/"
+  ip: "http://192.168.1.9:81/stream"
+  # ip: /home/carmelog/Desktop/storage/sync/HomeCamera_Motion_2023-02-23T010000_.avi
   # Save/Display Params
   visualize: False
-  save_video: False
+  save_video: True
   save_logs: False
   show_algo: True
   # Playback Params
   playback: False
   playback_rate: 0.0001
   # Other Params
-  verbose: False
+  verbose: True
   extra_sleep: 0.5
   saved_video_length: 600
 

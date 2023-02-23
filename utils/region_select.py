@@ -17,10 +17,10 @@ def set_region_roi(region, frame_width, frame_height):
     if type(region) is tuple:
         region = region[0]
     if region in ['HomeCamera', 'test']:
-        loc_a = np.array([[0 // scale1, 50 // scale2],
-                          [0 // scale1, 600 // scale2],
-                          [800 // scale1, 600 // scale2],
-                          [800 // scale1, 50 // scale2]])
+        loc_a = np.array([[412 // scale1, 456 // scale2],
+                          [354 // scale1, 477// scale2],
+                          [595 // scale1, 558 // scale2],
+                          [659 // scale1, 517 // scale2]])
         motion_roi = [loc_a]
         motion_mask_names = ['A']
     else:
@@ -28,7 +28,7 @@ def set_region_roi(region, frame_width, frame_height):
         os._exit(1)
     if motion_roi is not None:
         motion_regions = len(motion_mask_names)
-        motion_roi = [region.astype(np.int) for region in motion_roi]
+        motion_roi = [region.astype(int) for region in motion_roi]
         path = [mplPath.Path(loc, closed=True) for loc in motion_roi]
         motion_roi_points = []
         for loc in motion_roi:

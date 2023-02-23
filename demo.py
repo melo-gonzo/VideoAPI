@@ -22,7 +22,7 @@ class Demo(VideoStream):
                 if self.thread_manager['run_algo']:
                     print('Running...', end='\r')
                     if self.verbose:
-                        print(f"Algo Current: {self.thread_manager}")
+                        print(f"\nAlgo Current: {self.thread_manager}")
                     self.reset_si_dict()
                     self.algorithm_frame = self.frame.copy()
                     gray = cv2.cvtColor(
@@ -39,8 +39,7 @@ class Demo(VideoStream):
                     self.get_motion(
                         diffs, self.min_area, frame_delta)
                     motion = self.report_motion()
-                    self.thread_manager = {
-                        'grab_frame': False, 'run_algo': False, 'save_frame': True}
+                    
                     ######################
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     bottomLeftCornerOfText = (10, 25)
@@ -62,6 +61,8 @@ class Demo(VideoStream):
                         print(f'\nMotion: {report_time} \n', end='\r')
                         cv2.imwrite(
                             f"{self.storage_location}/images/{report_time}.jpg", self.frame)
+                    self.thread_manager = {
+                        'grab_frame': False, 'run_algo': False, 'save_frame': True}
                     if self.verbose:
                         print(f"Algo Next Action: {self.thread_manager}")
                 else:
@@ -76,8 +77,9 @@ class Demo(VideoStream):
         si_to_see = False
         for idx, region in enumerate(self.roi_names):
             if self.verbose:
-                print((self.motion_timers[idx].occurrences,
-                      self.motion_timers[idx].frames))
+                pass
+                # print((self.motion_timers[idx].occurrences,
+                #      self.motion_timers[idx].frames))
             reset_timer_condition = self.motion_timers[idx].occurrences > 1 and self.motion_timers[idx].frames == 0
             if reset_timer_condition and self.si_dict[region]['message_type'] == 'Event':
                 si_to_see = True

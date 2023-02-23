@@ -93,7 +93,7 @@ class VideoStream(ABC):
                 if self.playback:
                     if self.thread_manager['grab_frame']:
                         if self.verbose:
-                            print(f"Update Current: {self.thread_manager}")
+                            print(f"\nUpdate Current: {self.thread_manager}")
                         time.sleep(self.playback_rate)
                         (self.status, self.frame) = self.capture.read()
                         self.new_frame = self.write_frame = self.status
@@ -103,14 +103,14 @@ class VideoStream(ABC):
                         self.thread_manager = {
                             'grab_frame': False, 'run_algo': True, 'save_frame': False}
                         if self.verbose:
-                            print(f"Update Next Action: {self.thread_manager}")
+                            print(f"Update Next Action: {self.thread_manager}\n")
                 else:
                     (self.status, self.frame) = self.capture.read()
                     self.write_frame = self.status
                     self.thread_manager = {
                         'grab_frame': False, 'run_algo': True, 'save_frame': False}
                     if self.verbose:
-                        print(f"Update Next Action : {self.thread_manager}")
+                        print(f"Update Next Action : {self.thread_manager}\n")
                 if not self.status:
                     os._exit(1)
 
@@ -127,14 +127,14 @@ class VideoStream(ABC):
     def save_frame(self):
         if self.thread_manager['save_frame'] and self.write_frame:
             if self.verbose:
-                print(f"Save Frame Current: {self.thread_manager}")
+                print(f"\nSave Frame Current: {self.thread_manager}")
             self.output_video.write(self.frame)
             self.write_frame = False
             if self.playback:
                 self.thread_manager = {'grab_frame': True,
                                        'run_algo': False, 'save_frame': False}
             if self.verbose:
-                print(f"Save Frame Next Action: {self.thread_manager}")
+                print(f"Save Frame Next Action: {self.thread_manager}\n")
 
     def move_files(self):
         sl = self.storage_location
@@ -162,11 +162,11 @@ class VideoStream(ABC):
         while True:
             if self.thread_manager['run_algo']:
                 if self.verbose:
-                    print(f"Algo Current: {self.thread_manager}")
+                    print(f"\nAlgo Current: {self.thread_manager}")
                 self.thread_manager = {
                     'grab_frame': False, 'run_algo': False, 'save_frame': True}
                 if self.verbose:
-                    print(f"Algo Next Action: {self.thread_manager}")
+                    print(f"Algo Next Action: {self.thread_manager}\n")
         pass
 
 
