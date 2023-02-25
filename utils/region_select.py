@@ -16,7 +16,7 @@ def set_region_roi(region, frame_width, frame_height):
     motion_regions = None
     if type(region) is tuple:
         region = region[0]
-    if region in ['HomeCamera', 'test']:
+    if region in ['home-cam', 'test']:
         loc_a = np.array([[412 // scale1, 456 // scale2],
                           [354 // scale1, 477// scale2],
                           [595 // scale1, 558 // scale2],
