@@ -5,7 +5,6 @@ import os
 import time
 
 
-
 def google_flow():
     gauth = GoogleAuth()
     # Try to load saved client credentials
@@ -27,6 +26,7 @@ def google_flow():
     gauth.SaveCredentialsFile("mycreds.txt")
     drive = GoogleDrive(gauth)
     return drive
+
 
 drive = google_flow()
 
@@ -87,6 +87,7 @@ def google_drive(image_dir, esp_folder_id):
         except Exception:
             drive = google_flow()
             pass
+
 
 image_dir = "/home/carmelo/Desktop/storage/images/"
 esp_folder_id = "1pnkMb4-9ZMOGvagxPt7n0cJ-lhLuKZhx"

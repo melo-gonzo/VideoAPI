@@ -1,7 +1,8 @@
 import time
 
+
 class TimeEvents:
-    def __init__(self, name='Default'):
+    def __init__(self, name="Default"):
         self.name = name
         self.start_time = None
         self.elapsed_time = None
