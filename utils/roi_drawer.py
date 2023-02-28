@@ -29,7 +29,9 @@ while True:
     if ret:
         # Create a black image for padding
         black = [0, 0, 255]
-        padded_frame = cv2.copyMakeBorder(frame, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=black)
+        padded_frame = cv2.copyMakeBorder(
+            frame, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=black
+        )
         # Set the mouse callback function for the padded frame
         cv2.setMouseCallback("ROI", mouse_callback)
         # Draw lines connecting all clicked points
@@ -44,7 +46,7 @@ while True:
             )
         except IndexError:
             pass
-    
+
         cv2.imshow("ROI", padded_frame)
         # Show the original frame with lines connecting clicked points
         # Wait for a key press
@@ -66,5 +68,3 @@ for i, point in enumerate(clicked_points):
 
 # Release the video stream and close all windows
 cv2.destroyAllWindows()
-
-
