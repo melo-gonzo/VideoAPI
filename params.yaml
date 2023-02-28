@@ -4,7 +4,7 @@ video_stream_params:
   name: home-cam
   resize_multiplier: 1
   storage_location: "/home/carmelog/Desktop/storage/"
-  ip: "http://192.168.1.2:81/stream"
+  ip: "http://192.168.1.68/mjpeg/1"
   # ip: /home/carmelog/Desktop/storage/sync/HomeCamera_Motion_2023-02-23T010000_.avi
   # Save/Display Params
   visualize: False
