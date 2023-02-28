@@ -10,10 +10,9 @@ import numpy as np
 
 
 class Demo(VideoStream):
-    def __init__(self):
-        self.clip_frames = deque(maxlen=5)
 
     def algorithm_thread(self):
+        self.clip_frames = deque(maxlen=5)
         self.set_si_dict()
         self.global_timer = TimeEvents(name="Global")
         self.motion_timers = [TimeEvents(name=name) for name in self.roi_names]
