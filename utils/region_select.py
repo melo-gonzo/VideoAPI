@@ -16,6 +16,7 @@ def set_region_roi(region, frame_width, frame_height):
     motion_regions = None
     if type(region) is tuple:
         region = region[0]
+<<<<<<< Updated upstream
     if region in ["home-cam", "test"]:
         loc_a = np.array(
             [
@@ -25,6 +26,13 @@ def set_region_roi(region, frame_width, frame_height):
                 [659 // scale1, 517 // scale2],
             ]
         )
+=======
+    if region in ['home-cam', 'test']:
+        loc_a = np.array([[0 // scale1, 50 // scale2],
+                          [1280 // scale1, 50// scale2],
+                          [1280 // scale1, 720 // scale2],
+                          [0 // scale1, 720 // scale2]])
+>>>>>>> Stashed changes
         motion_roi = [loc_a]
         motion_mask_names = ["A"]
     else:
