@@ -12,7 +12,8 @@ import numpy as np
 class Demo(VideoStream):
 
     def algorithm_thread(self):
-        self.clip_frames = deque(maxlen=5)
+        self.clip_pause = 0
+        self.clip_frames = deque(maxlen=6)
         self.set_si_dict()
         self.global_timer = TimeEvents(name="Global")
         self.motion_timers = [TimeEvents(name=name) for name in self.roi_names]
@@ -61,13 +62,19 @@ class Demo(VideoStream):
                         lineType,
                     )
                     if motion:
+                        self.clip_pause+=1
                         report_time = time.strftime("%Y-%m-%dT%H%M%SZ", time.gmtime())
                         print(f"\nMotion: {report_time} \n", end="\r")
                         cv2.imwrite(
                             f"{self.storage_location}/images/{report_time}.jpg",
                             self.frame,
                         )
-                        self.make_clip(self.clip_frames, report_time)
+                    if self.clip_pause>0:
+                        if not motion:
+                            self.clip_pause+=1 
+                        if self.clip_pause==3:                    
+                            self.make_clip(self.clip_frames, report_time)
+                            self.clip_pause = 0
                     self.thread_manager = {
                         "grab_frame": False,
                         "run_algo": False,
