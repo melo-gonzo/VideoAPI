@@ -1,9 +1,10 @@
+import os
+import sys
+import time
+
+import cv2
 import matplotlib.path as mplPath
 import numpy as np
-import cv2
-import time
-import sys
-import os
 
 
 def set_region_roi(region, frame_width, frame_height):

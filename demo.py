@@ -1,12 +1,13 @@
-from video_api import TimeEvents, VideoStream
-from utils.region_select import *
-import yaml
 import copy
 import traceback
 from collections import deque
 
 import cv2
 import numpy as np
+import yaml
+
+from utils.region_select import *
+from video_api import TimeEvents, VideoStream
 
 
 class Demo(VideoStream):

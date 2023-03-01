@@ -1,11 +1,13 @@
+import os
+import time
+import traceback
 from abc import ABC, abstractmethod
 from threading import Thread
-import numpy as np
-import traceback
-import time
+
 import cv2
-import os
+import numpy as np
 import yaml
+
 from utils.time_utils import TimeEvents
 
 
