@@ -8,3 +8,4 @@ motion_demo.py
 esp32.sh
 params.py
 settings.yaml
+.DS_Store
