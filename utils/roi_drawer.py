@@ -1,7 +1,11 @@
+import sys
+
+sys.path.append("/usr/lib/python3/dist-packages")
 import cv2
 
 # Define a list to store the clicked points
 clicked_points = []
+
 
 # Define a callback function to capture mouse clicks
 def mouse_callback(event, x, y, flags, param):
@@ -11,7 +15,9 @@ def mouse_callback(event, x, y, flags, param):
 
 
 # Open the video stream
-cap = cv2.VideoCapture("http://192.168.1.68/mjpeg/1")
+cap = cv2.VideoCapture(
+    "rtsp://admin:lunajake101@192.168.1.17:554/cam/realmonitor?channel=1&subtype=0"
+)
 ret, frame = cap.read()
 og_frame = frame.copy()
 cap.release()
@@ -23,6 +29,14 @@ height, width, channels = frame.shape
 
 # Define the padding size
 padding = int(min(width, height) * 0.05)
+
+# Define the desired window size
+window_width = 800
+window_height = 600
+
+# Create a named window with the specified size
+cv2.namedWindow("ROI", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("ROI", window_width, window_height)
 
 while True:
     # Read a frame from the video stream
@@ -56,6 +70,7 @@ while True:
             break
 
 # Report the pixel locations of the clicked points in terms of the unpadded frame
+cp = []
 for i, point in enumerate(clicked_points):
     x, y = point
     x -= padding
@@ -65,6 +80,14 @@ for i, point in enumerate(clicked_points):
     x = min(x, width)
     y = min(y, height)
     print("Clicked point {}: ({}, {})".format(i + 1, x, y))
+    cp.append((x,y))
+
+for i, point in enumerate(cp):
+    print(
+        f"    [{point[0]} // scale1, {point[1]} // scale2]{',' if i < len(cp)-1 else ''}"
+    )
+
+print("])")
 
 # Release the video stream and close all windows
 cv2.destroyAllWindows()

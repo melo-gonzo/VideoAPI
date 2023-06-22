@@ -3,6 +3,9 @@ import time
 import traceback
 from abc import ABC, abstractmethod
 from threading import Thread
+import sys
+sys.path.append("/usr/lib/python3/dist-packages")
+
 
 import cv2
 import numpy as np
@@ -31,7 +34,7 @@ class VideoStream(ABC):
         self.frame_height = int(self.capture.get(4) * self.resize_multiplier)
         self.frame = np.zeros((self.frame_width, self.frame_height))
         self.codec = cv2.VideoWriter_fourcc(
-            "X", "V", "I", "D"
+            *'mp4v'
         )  # 'M', 'J', 'P', 'G', 'X', 'V', 'I', 'D
         self.status = True
         if self.playback:
@@ -67,7 +70,7 @@ class VideoStream(ABC):
         print("Initialized {}".format(self.video_file))
 
     def iterate_video(self):
-        start_time = time.strftime("%Y-%m-%dT%H%M%S", time.gmtime())
+        start_time = time.strftime("%Y-%m-%dT%H%M%S", time.localtime())
         if self.playback:
             self.frame_name = "_".join([self.name, self.algorithm, "Playback"])
             playback_file = self.ip.split("/")[-1]
@@ -76,18 +79,20 @@ class VideoStream(ABC):
                 self.algorithm,
                 "Playback",
                 playback_file[:-4],
-                ".avi",
+                "_c.mp4",
             ]
             self.video_file = self.storage_location + "_".join(file_name_params)
         else:
             self.frame_name = "_".join([self.name, self.algorithm, "Stream"])
-            file_name_params = [self.name, self.algorithm, start_time, ".avi"]
-            self.video_file = self.storage_location + "_".join(file_name_params)
+            storage_location = os.path.join(self.storage_location, time.strftime("%Y-%m-%d", time.localtime()))
+            os.makedirs(storage_location, exist_ok=True)
+            file_name_params = [time.strftime("%H-%M-%S", time.localtime()), "_c.mp4"]
+            self.video_file = os.path.join(storage_location, "".join(file_name_params))
         if self.save_logs:
-            self.log_file = self.video_file.strip(".avi") + ".txt"
+            self.log_file = self.video_file.strip("_c.mp4") + ".txt"
         if self.save_video:
             self.output_video = cv2.VideoWriter(
-                self.video_file, self.codec, 10, (self.frame_width, self.frame_height)
+                self.video_file, self.codec, 15, (self.frame_width, self.frame_height)
             )
 
     def update(self):
@@ -159,11 +164,12 @@ class VideoStream(ABC):
                 print(f"Save Frame Next Action: {self.thread_manager}\n")
 
     def move_files(self):
-        sl = self.storage_location
-        for file in os.listdir(sl):
-            os.replace(
-                sl + file, sl + "sync/" + file
-            ) if ".txt" in file or ".avi" in file else 0
+        pass
+        # sl = self.storage_location
+        # for file in os.listdir(sl):
+        #     os.replace(
+        #         sl + file, sl + "sync/" + file
+        #     ) if ".txt" in file or "_c.mp4" in file else 0
 
     def start_recording(self):
         timer = TimeEvents().restart()

@@ -1,6 +1,9 @@
 import copy
 import traceback
 from collections import deque
+import sys
+sys.path.append("/usr/lib/python3/dist-packages")
+
 
 import cv2
 import numpy as np
@@ -64,10 +67,10 @@ class Demo(VideoStream):
                     )
                     if motion:
                         self.clip_pause+=1
-                        report_time = time.strftime("%Y-%m-%dT%H%M%SZ", time.gmtime())
+                        report_time = time.strftime("%H-%M-%S", time.localtime())
                         print(f"\nMotion: {report_time} \n", end="\r")
                         cv2.imwrite(
-                            f"{self.storage_location}/images/{report_time}.jpg",
+                            f"{self.storage_location}/{report_time}_c.jpg",
                             self.frame,
                         )
                     if self.clip_pause>0:
@@ -92,9 +95,9 @@ class Demo(VideoStream):
     def make_clip(self, frames, time):
         height, width = frames[0].shape[:2]
         # Create a VideoWriter object with the output filename and frame rate
-        fourcc = cv2.VideoWriter_fourcc("X", "V", "I", "D")  # use appropriate codec
-        output_filename = f"{self.storage_location}/images/{time}_clip.avi"
-        fps = 2
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # use appropriate codec
+        output_filename = f"{self.storage_location}/{time}_clip_c.mp4"
+        fps = 15
         video_writer = cv2.VideoWriter(output_filename, fourcc, fps, (width, height))
         # Loop through the frames and write them to the video file
         for frame in frames:
@@ -108,11 +111,10 @@ class Demo(VideoStream):
         si_to_see = False
         for idx, region in enumerate(self.roi_names):
             if self.verbose:
-                pass
-                # print((self.motion_timers[idx].occurrences,
-                #      self.motion_timers[idx].frames))
+                print((self.motion_timers[idx].occurrences,
+                     self.motion_timers[idx].frames))
             reset_timer_condition = (
-                self.motion_timers[idx].occurrences > 1
+                self.motion_timers[idx].occurrences > 30
                 and self.motion_timers[idx].frames == 0
             )
             if (
@@ -131,7 +133,7 @@ class Demo(VideoStream):
             ):
                 flag_regions.append(region)
 
-        report_time = time.strftime("%Y-%m-%dT%H%M%SZ", time.gmtime())
+        report_time = time.strftime("%Y-%m-%dT%H%M%SZ", time.localtime())
         if self.save_logs and flag_regions != []:
             self.write_data(report_time=report_time)
 

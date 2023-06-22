@@ -18,10 +18,20 @@ def set_region_roi(region, frame_width, frame_height):
     if type(region) is tuple:
         region = region[0]
     if region in ['home-cam', 'test']:
-        loc_a = np.array([[0 // scale1, 50 // scale2],
-                          [1280 // scale1, 50// scale2],
-                          [1280 // scale1, 720 // scale2],
-                          [0 // scale1, 720 // scale2]])
+        # loc_a = np.array([[0 // scale1, 50 // scale2],
+        #                   [1280 // scale1, 50// scale2],
+        #                   [1280 // scale1, 720 // scale2],
+        #                   [0 // scale1, 720 // scale2]])
+
+        loc_a = np.array([
+                        [270 // scale1, 589 // scale2],
+                        [356 // scale1, 1080 // scale2],
+                        [1920 // scale1, 1080 // scale2],
+                        [1920 // scale1, 457 // scale2],
+                        [1322 // scale1, 614 // scale2],
+                        [881 // scale1, 599 // scale2],
+                        [772 // scale1, 538 // scale2]
+                          ])
         motion_roi = [loc_a]
         motion_mask_names = ["A"]
     else:
