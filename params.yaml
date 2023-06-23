@@ -5,10 +5,9 @@ video_stream_params:
   resize_multiplier: 1
   storage_location: "/home/carmelog/Desktop/storage/"
   # storage_location: "/var/lib/motioneye/Camera1/"
-  ip: "rtsp://admin:lunajake101@192.168.1.17:554/cam/realmonitor?channel=1&subtype=0"
-  # ip: /home/carmelog/Desktop/storage/sync/HomeCamera_Motion_2023-02-23T010000_.avi
+
   # Save/Display Params
-  visualize: False
+  visualize: True
   save_video: True
   save_logs: False
   show_algo: True
@@ -17,8 +16,8 @@ video_stream_params:
   playback_rate: 0.0001
   # Other Params
   verbose: False
-  extra_sleep: 0.00001
-  saved_video_length: 60
+  extra_sleep: 0.0
+  saved_video_length: 20
 
 algo_params:
   blur: 9

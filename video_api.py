@@ -165,11 +165,6 @@ class VideoStream(ABC):
 
     def move_files(self):
         pass
-        # sl = self.storage_location
-        # for file in os.listdir(sl):
-        #     os.replace(
-        #         sl + file, sl + "sync/" + file
-        #     ) if ".txt" in file or "_c.mp4" in file else 0
 
     def start_recording(self):
         timer = TimeEvents().restart()
