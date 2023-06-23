@@ -1,10 +1,11 @@
 import sys
 sys.path.append("/usr/lib/python3/dist-packages")
+
 import cv2
-import threading 
+import threading
 import os
 import yaml
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class VideoStream:
     def __init__(self, video_address):
@@ -16,7 +17,12 @@ class VideoStream:
         self.thread.start()
 
     def _read_frames(self):
-        while True:
+        ret = False
+        while not ret:
+            if self.cap.isOpened():
+                ret, frame = self.cap.read()
+
+        while ret:
             ret, frame = self.cap.read()
             if not ret:
                 break
@@ -30,33 +36,33 @@ class VideoStream:
         return self.frame
 
 class VideoRecorder:
-    def __init__(self, width, height, output_folder, recording_duration, fourcc_codec):
+    def __init__(self, width, height, output_folder, video_format):
         self.width = width
         self.height = height
         self.output_folder = output_folder
-        self.recording_duration = recording_duration
-        self.fourcc_codec = cv2.VideoWriter_fourcc(*fourcc_codec)
+        self.video_format = video_format
 
         self.recording = False
-        self.recording_start_time = None
         self.output_filename = None
         self.video_writer = None
+        self.recording_start_time = None
 
     def start_recording(self):
         current_time = datetime.now().strftime("%H-%M-%S")
-        self.output_filename = f"{self.output_folder}/{current_time}.mp4"
+        self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
         self.video_writer = cv2.VideoWriter(
             self.output_filename,
-            self.fourcc_codec,
+            cv2.VideoWriter_fourcc(*"mp4v"),
             20.0,
-            (self.width, self.height)
+            (self.width, self.height),
         )
         self.recording_start_time = datetime.now()
         self.recording = True
         print("Recording started.")
 
     def stop_recording(self):
-        self.video_writer.release()
+        if self.video_writer is not None:
+            self.video_writer.release()
         self.recording = False
         print("Recording stopped.")
 
@@ -64,59 +70,78 @@ class VideoRecorder:
         return self.recording
 
     def write_frame(self, frame):
-        self.video_writer.write(frame)
+        if frame is not None:
+            frame = cv2.resize(frame, (self.width, self.height))
+            self.video_writer.write(frame)
 
     def get_elapsed_time(self):
-        return (datetime.now() - self.recording_start_time).total_seconds()
+        return datetime.now() - self.recording_start_time
 
-# Load parameters from YAML file
-with open("parameters.yaml", "r") as file:
-    params = yaml.safe_load(file)
+def read_video_stream(vs, video_recorder, recording_duration):
+    while True:
+        frame = vs.get_latest_frame()
 
-# Get parameters from YAML
-width = params["window_width"]
-height = params["window_height"]
-video_address = params["video_address"]
-output_folder = datetime.now().strftime(params["output_folder"])
-recording_duration = params["recording_duration"]
-fourcc_codec = params["fourcc_codec"]
+        if video_recorder.is_recording():
+            video_recorder.write_frame(frame)
 
-# Create a VideoStream object
-vs = VideoStream(video_address)
+            if video_recorder.get_elapsed_time() >= recording_duration:
+                video_recorder.stop_recording()
+                print(f"Recording stopped after {recording_duration} seconds.")
+                video_recorder.start_recording()
+                
 
-# Set the window size
-cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
-cv2.resizeWindow("Video Stream", width, height)
+def main():
+    # Load parameters from YAML file
+    with open("parameters.yaml", "r") as file:
+        params = yaml.safe_load(file)
 
-# Create the directory with current date as the folder name
-os.makedirs(output_folder, exist_ok=True)
+    # Get parameters from YAML
+    width = params["window_width"]
+    height = params["window_height"]
+    video_address = params["video_address"]
+    output_folder = datetime.now().strftime(params["output_folder"])
+    fourcc_codec = params["fourcc_codec"]
+    show_stream = params["show_stream"]
+    video_format = params["video_format"]
+    recording_duration = params["recording_duration"]
 
-# Create VideoRecorder object
-video_recorder = VideoRecorder(width, height, output_folder, recording_duration, fourcc_codec)
+    # Create a VideoStream object
+    vs = VideoStream(video_address)
+    if show_stream:
+        cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Video Stream", width, height)
 
-while True:
-    frame = vs.get_latest_frame()
+    # Create the directory with the current date as the folder name
+    # output_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
+    os.makedirs(output_folder, exist_ok=True)
 
-    # Display the frame
-    cv2.imshow("Video Stream", frame)
+    # Create VideoRecorder object
+    video_recorder = VideoRecorder(width, height, output_folder, video_format)
 
-    # Start/stop recording when 'r' key is pressed
-    key = cv2.waitKey(1) & 0xFF
-    if not video_recorder.is_recording():
-        video_recorder.start_recording()
+    # Create a separate thread for reading the video stream
+    recording_duration = timedelta(seconds=recording_duration)
+    thread = threading.Thread(target=read_video_stream, args=(vs, video_recorder, recording_duration))
+    thread.daemon = True
+    thread.start()
 
-    if video_recorder.is_recording():
-        print('write frame')
-        video_recorder.write_frame(frame)
+    # Start recording
+    video_recorder.start_recording()
 
-        if video_recorder.get_elapsed_time() >= recording_duration:
-            video_recorder.stop_recording()
-            print(f"Recording stopped after {recording_duration} seconds.")
+    while True:
+        frame = vs.get_latest_frame()
 
-    # Check for 'q' key press to exit
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        if show_stream:
+            # Display the frame
+            cv2.imshow("Video Stream", frame)
 
-# Release the video capture and close all windows
-vs.cap.release()
-cv2.destroyAllWindows()
+            # Check for 'q' key press to exit
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    # Stop recording and release resources
+    video_recorder.stop_recording()
+    vs.cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
