@@ -5,7 +5,11 @@ import cv2
 import threading
 import os
 import yaml
+import time
 from datetime import datetime, timedelta
+
+import os
+os.environ["GST_DEBUG"] = "3"
 
 class VideoStream:
     def __init__(self, video_address):
@@ -24,11 +28,12 @@ class VideoStream:
 
         while ret:
             ret, frame = self.cap.read()
-            if not ret:
-                break
-            self.frame = frame
-            self.frame_available.set()
-            self.frame_available.wait()
+            if ret:
+                self.frame = frame
+                self.frame_available.set()
+                self.frame_available.wait()
+            else:
+                self.frame_available.wait()
 
     def get_latest_frame(self):
         self.frame_available.wait()
@@ -39,6 +44,7 @@ class VideoRecorder:
     def __init__(self, width, height, output_folder, video_format):
         self.width = width
         self.height = height
+        self.output_folder_base = output_folder
         self.output_folder = output_folder
         self.video_format = video_format
 
@@ -47,9 +53,19 @@ class VideoRecorder:
         self.video_writer = None
         self.recording_start_time = None
 
+    @property
+    def output_folder(self):
+        return self._output_folder
+
+    @output_folder.setter
+    def output_folder(self, value):
+        self._output_folder = datetime.now().strftime(value)
+
     def start_recording(self):
         current_time = datetime.now().strftime("%H-%M-%S")
+        self.output_folder = self.output_folder_base
         self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
+        print(f"Saving to: {self.output_filename}")
         self.video_writer = cv2.VideoWriter(
             self.output_filename,
             cv2.VideoWriter_fourcc(*"mp4v"),
@@ -99,7 +115,7 @@ def main():
     width = params["window_width"]
     height = params["window_height"]
     video_address = params["video_address"]
-    output_folder = datetime.now().strftime(params["output_folder"])
+    output_folder = params["output_folder"]
     fourcc_codec = params["fourcc_codec"]
     show_stream = params["show_stream"]
     video_format = params["video_format"]
@@ -117,7 +133,7 @@ def main():
 
     # Create VideoRecorder object
     video_recorder = VideoRecorder(width, height, output_folder, video_format)
-
+    time.sleep(3)
     # Create a separate thread for reading the video stream
     recording_duration = timedelta(seconds=recording_duration)
     thread = threading.Thread(target=read_video_stream, args=(vs, video_recorder, recording_duration))
