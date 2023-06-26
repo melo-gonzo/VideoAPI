@@ -1,14 +1,17 @@
 import sys
+
 sys.path.append("/usr/lib/python3/dist-packages")
 
-import cv2
-import threading
 import os
-import yaml
+import threading
 import time
 from datetime import datetime, timedelta
 
-import os
+import cv2
+import yaml
+
+from creds import *
+
 os.environ["GST_DEBUG"] = "3"
 
 class VideoStream:
@@ -114,7 +117,7 @@ def main():
     # Get parameters from YAML
     width = params["window_width"]
     height = params["window_height"]
-    video_address = params["video_address"]
+    video_address = params["video_address"].format(user, password)
     output_folder = params["output_folder"]
     fourcc_codec = params["fourcc_codec"]
     show_stream = params["show_stream"]
