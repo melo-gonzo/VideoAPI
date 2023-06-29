@@ -30,6 +30,6 @@ class VideoStreamer:
 
 
 
-ip = f"rtsp://{user}:{password}@192.168.1.17:554/cam/realmonitor?channel=1&subtype=1"
+ip = f"rtsp://{user}:{password}@192.168.1.19:554/cam/realmonitor?channel=1&subtype=1"
 
 v = VideoStreamer(ip)

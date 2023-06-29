@@ -31,6 +31,7 @@ class VideoStream:
 
         while ret:
             ret, frame = self.cap.read()
+            time.sleep(0.001)
             if ret:
                 self.frame = frame
                 self.frame_available.set()
@@ -67,6 +68,7 @@ class VideoRecorder:
     def start_recording(self):
         current_time = datetime.now().strftime("%H-%M-%S")
         self.output_folder = self.output_folder_base
+        os.makedirs(self.output_folder, exist_ok=True)
         self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
         print(f"Saving to: {self.output_filename}")
         self.video_writer = cv2.VideoWriter(
@@ -99,7 +101,7 @@ class VideoRecorder:
 def read_video_stream(vs, video_recorder, recording_duration):
     while True:
         frame = vs.get_latest_frame()
-
+        time.sleep(0.001)
         if video_recorder.is_recording():
             video_recorder.write_frame(frame)
 
