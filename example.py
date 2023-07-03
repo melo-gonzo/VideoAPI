@@ -134,7 +134,6 @@ def main():
 
     # Create the directory with the current date as the folder name
     # output_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
-    os.makedirs(output_folder, exist_ok=True)
 
     # Create VideoRecorder object
     video_recorder = VideoRecorder(width, height, output_folder, video_format)
@@ -165,4 +164,5 @@ def main():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
+    time.sleep(1)
     main()
