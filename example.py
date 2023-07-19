@@ -93,8 +93,12 @@ class VideoRecorder:
     def write_frame(self, frame):
         if frame is not None:
             frame = cv2.resize(frame, (self.width, self.height))
-            self.video_writer.write(frame)
+            try:
+                self.video_writer.write(frame)
+            except Exception:
+                pass
 
+            
     def get_elapsed_time(self):
         return datetime.now() - self.recording_start_time
 
