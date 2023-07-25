@@ -30,14 +30,17 @@ class VideoStream:
                 ret, frame = self.cap.read()
 
         while ret:
-            ret, frame = self.cap.read()
-            time.sleep(0.001)
-            if ret:
-                self.frame = frame
-                self.frame_available.set()
-                self.frame_available.wait()
+            if self.cap.isOpened():
+                ret, frame = self.cap.read()
+                time.sleep(0.001)
+                if ret:
+                    self.frame = frame
+                    self.frame_available.set()
+                    self.frame_available.wait()
+                else:
+                    self.frame_available.wait()
             else:
-                self.frame_available.wait()
+                self.__init__(self.video_address)
 
     def get_latest_frame(self):
         self.frame_available.wait()
@@ -51,7 +54,6 @@ class VideoRecorder:
         self.output_folder_base = output_folder
         self.output_folder = output_folder
         self.video_format = video_format
-
         self.recording = False
         self.output_filename = None
         self.video_writer = None
@@ -66,20 +68,23 @@ class VideoRecorder:
         self._output_folder = datetime.now().strftime(value)
 
     def start_recording(self):
-        current_time = datetime.now().strftime("%H-%M-%S")
-        self.output_folder = self.output_folder_base
-        os.makedirs(self.output_folder, exist_ok=True)
-        self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
-        print(f"Saving to: {self.output_filename}")
-        self.video_writer = cv2.VideoWriter(
-            self.output_filename,
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            20.0,
-            (self.width, self.height),
-        )
-        self.recording_start_time = datetime.now()
-        self.recording = True
-        print("Recording started.")
+        try:
+            current_time = datetime.now().strftime("%H-%M-%S")
+            self.output_folder = self.output_folder_base
+            os.makedirs(self.output_folder, exist_ok=True)
+            self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
+            print(f"Saving to: {self.output_filename}")
+            self.video_writer = cv2.VideoWriter(
+                self.output_filename,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                20.0,
+                (self.width, self.height),
+            )
+            self.recording_start_time = datetime.now()
+            self.recording = True
+            print("Recording started.")
+        except Exception:
+            pass
 
     def stop_recording(self):
         if self.video_writer is not None:
@@ -92,8 +97,8 @@ class VideoRecorder:
 
     def write_frame(self, frame):
         if frame is not None:
-            frame = cv2.resize(frame, (self.width, self.height))
             try:
+                frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
             except Exception:
                 pass
@@ -166,6 +171,7 @@ def main():
     video_recorder.stop_recording()
     vs.cap.release()
     cv2.destroyAllWindows()
+    print("Broken from main")
 
 if __name__ == "__main__":
     time.sleep(1)
