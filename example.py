@@ -2,6 +2,7 @@ import sys
 
 sys.path.append("/usr/lib/python3/dist-packages")
 
+import logging
 import os
 import threading
 import time
@@ -13,6 +14,18 @@ import yaml
 from creds import *
 
 os.environ["GST_DEBUG"] = "3"
+
+logging.basicConfig(
+    filename="/home/carmelog/Desktop/video_recording.log", level=logging.DEBUG
+)
+
+
+def nicetime():
+    return datetime.now().strftime("%H-%M-%S")
+
+
+logging.debug("%s: Starting VideoAPI", nicetime())
+
 
 class VideoStream:
     def __init__(self, video_address):
@@ -38,14 +51,21 @@ class VideoStream:
                     self.frame_available.set()
                     self.frame_available.wait()
                 else:
-                    self.frame_available.wait()
+                    logging.debug("%s: Frame not available in _read_frames (set to none)", nicetime())
+                    self.frame = None
+                    pass
+                    # self.frame_available.wait()
             else:
+                logging.warning(
+                    "%s: Video stream failed to open in _read_frames", nicetime()
+                )
                 self.__init__(self.video_address)
 
     def get_latest_frame(self):
         self.frame_available.wait()
         self.frame_available.clear()
         return self.frame
+
 
 class VideoRecorder:
     def __init__(self, width, height, output_folder, video_format):
@@ -65,6 +85,7 @@ class VideoRecorder:
 
     @output_folder.setter
     def output_folder(self, value):
+        logging.debug("%s: Make output folder in output_folder", nicetime())
         self._output_folder = datetime.now().strftime(value)
 
     def start_recording(self):
@@ -72,8 +93,12 @@ class VideoRecorder:
             current_time = datetime.now().strftime("%H-%M-%S")
             self.output_folder = self.output_folder_base
             os.makedirs(self.output_folder, exist_ok=True)
-            self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
-            print(f"Saving to: {self.output_filename}")
+            self.output_filename = (
+                f"{self.output_folder}/{current_time}_c.{self.video_format}"
+            )
+            logging.debug(
+                "%s: Saving to: %s in start_recording", nicetime(), self.output_filename
+            )
             self.video_writer = cv2.VideoWriter(
                 self.output_filename,
                 cv2.VideoWriter_fourcc(*"mp4v"),
@@ -82,15 +107,18 @@ class VideoRecorder:
             )
             self.recording_start_time = datetime.now()
             self.recording = True
-            print("Recording started.")
+            logging.debug("%s: Recording started in start_recording", nicetime())
         except Exception:
+            logging.warning(
+                "%s: Recording failed to start in start_recording", nicetime()
+            )
             pass
 
     def stop_recording(self):
         if self.video_writer is not None:
             self.video_writer.release()
         self.recording = False
-        print("Recording stopped.")
+        logging.debug("%s: Recording stopped in stop_recording", nicetime())
 
     def is_recording(self):
         return self.recording
@@ -100,12 +128,14 @@ class VideoRecorder:
             try:
                 frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
+                # logging.debug("%s: Wrote frame in write_frame", nicetime())
             except Exception:
+                logging.warning("%s: Failed to write frame in write_frame", nicetime())
                 pass
 
-            
     def get_elapsed_time(self):
         return datetime.now() - self.recording_start_time
+
 
 def read_video_stream(vs, video_recorder, recording_duration):
     while True:
@@ -116,9 +146,13 @@ def read_video_stream(vs, video_recorder, recording_duration):
 
             if video_recorder.get_elapsed_time() >= recording_duration:
                 video_recorder.stop_recording()
-                print(f"Recording stopped after {recording_duration} seconds.")
+                logging.debug(
+                    "%s: Recording stopped after %s seconds",
+                    nicetime(),
+                    recording_duration,
+                )
                 video_recorder.start_recording()
-                
+
 
 def main():
     # Load parameters from YAML file
@@ -149,7 +183,9 @@ def main():
     time.sleep(3)
     # Create a separate thread for reading the video stream
     recording_duration = timedelta(seconds=recording_duration)
-    thread = threading.Thread(target=read_video_stream, args=(vs, video_recorder, recording_duration))
+    thread = threading.Thread(
+        target=read_video_stream, args=(vs, video_recorder, recording_duration)
+    )
     thread.daemon = True
     thread.start()
 
@@ -164,14 +200,15 @@ def main():
             cv2.imshow("Video Stream", frame)
 
             # Check for 'q' key press to exit
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
+    logging.warning("%s: Broken from main", nicetime())
     # Stop recording and release resources
     video_recorder.stop_recording()
     vs.cap.release()
     cv2.destroyAllWindows()
-    print("Broken from main")
+
 
 if __name__ == "__main__":
     time.sleep(1)
