@@ -53,8 +53,6 @@ class VideoStream:
                 else:
                     logging.debug("%s: Frame not available in _read_frames (set to none)", nicetime())
                     self.frame = None
-                    pass
-                    # self.frame_available.wait()
             else:
                 logging.warning(
                     "%s: Video stream failed to open in _read_frames", nicetime()
@@ -128,7 +126,6 @@ class VideoRecorder:
             try:
                 frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
-                # logging.debug("%s: Wrote frame in write_frame", nicetime())
             except Exception:
                 logging.warning("%s: Failed to write frame in write_frame", nicetime())
                 pass
@@ -212,4 +209,7 @@ def main():
 
 if __name__ == "__main__":
     time.sleep(1)
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.error(e, nicetime())
