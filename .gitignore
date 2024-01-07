@@ -4,7 +4,7 @@
 *txt*
 *old*
 *other*
-parameters.yaml
+parameters*.yaml
 motion_demo.py
 esp32.sh
 params.py
