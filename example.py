@@ -21,7 +21,7 @@ logging.basicConfig(
 
 
 def nicetime():
-    return datetime.now().strftime("%H-%M-%S")
+    return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
 
 logging.debug("%s: Starting VideoAPI", nicetime())
@@ -212,4 +212,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logging.error(e, nicetime())
+        logging.error("%s: Error", nicetime())
+        logging.error(e)
