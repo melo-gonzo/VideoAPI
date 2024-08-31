@@ -54,7 +54,7 @@ class VideoStream:
                     logging.debug("%s: Frame not available in _read_frames (set to none)", nicetime())
                     self.frame = None
             else:
-                logging.warning(
+                logging.debug(
                     "%s: Video stream failed to open in _read_frames", nicetime()
                 )
                 self.__init__(self.video_address)
@@ -107,7 +107,7 @@ class VideoRecorder:
             self.recording = True
             logging.debug("%s: Recording started in start_recording", nicetime())
         except Exception:
-            logging.warning(
+            logging.debug(
                 "%s: Recording failed to start in start_recording", nicetime()
             )
             pass
@@ -127,7 +127,7 @@ class VideoRecorder:
                 frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
             except Exception:
-                logging.warning("%s: Failed to write frame in write_frame", nicetime())
+                logging.debug("%s: Failed to write frame in write_frame", nicetime())
                 pass
 
     def get_elapsed_time(self):
@@ -200,7 +200,7 @@ def main():
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-    logging.warning("%s: Broken from main", nicetime())
+    logging.debug("%s: Broken from main", nicetime())
     # Stop recording and release resources
     video_recorder.stop_recording()
     vs.cap.release()
@@ -212,5 +212,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logging.error("%s: Error", nicetime())
+        logging.debug("%s: Error", nicetime())
         logging.error(e)
