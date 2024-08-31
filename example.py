@@ -7,6 +7,7 @@ import os
 import threading
 import time
 from datetime import datetime, timedelta
+from collections import deque
 
 import cv2
 import yaml
@@ -28,42 +29,50 @@ logging.debug("%s: Starting VideoAPI", nicetime())
 
 
 class VideoStream:
-    def __init__(self, video_address):
-        self.cap = cv2.VideoCapture(video_address)
-        self.frame = None
+    def __init__(self, video_address, buffer_size=3):
+        self.video_address = video_address
+        self.cap = None
+        self.frame_buffer = deque(maxlen=buffer_size)
+        self.frame_counter = 0
+        self.last_frame_hash = None
+        self.frame_lock = threading.Lock()
         self.frame_available = threading.Event()
         self.thread = threading.Thread(target=self._read_frames)
         self.thread.daemon = True
         self.thread.start()
 
-    def _read_frames(self):
-        ret = False
-        while not ret:
-            if self.cap.isOpened():
-                ret, frame = self.cap.read()
+    def _initialize_capture(self):
+        if self.cap is not None:
+            self.cap.release()
+        self.cap = cv2.VideoCapture(self.video_address)
+        if not self.cap.isOpened():
+            logging.error("%s: Failed to open video capture", nicetime())
+            return False
+        return True
 
-        while ret:
-            if self.cap.isOpened():
+    def _read_frames(self):
+        while True:
+            if not self._initialize_capture():
+                time.sleep(5)  # Wait before retrying
+                continue
+
+            while self.cap.isOpened():
                 ret, frame = self.cap.read()
-                time.sleep(0.001)
                 if ret:
-                    self.frame = frame
+                    with self.frame_lock:
+                        self.frame_buffer.append(frame)
                     self.frame_available.set()
-                    self.frame_available.wait()
                 else:
-                    logging.debug("%s: Frame not available in _read_frames (set to none)", nicetime())
-                    self.frame = None
-            else:
-                logging.debug(
-                    "%s: Video stream failed to open in _read_frames", nicetime()
-                )
-                self.__init__(self.video_address)
+                    logging.debug("%s: Frame not available in _read_frames, reinitializing capture", nicetime())
+                    break  # Break the inner loop to reinitialize capture
+
+            time.sleep(1)  # Short delay before retrying
+
 
     def get_latest_frame(self):
         self.frame_available.wait()
-        self.frame_available.clear()
-        return self.frame
-
+        with self.frame_lock:
+            return self.frame_buffer[-1] if self.frame_buffer else None
 
 class VideoRecorder:
     def __init__(self, width, height, output_folder, video_format):
@@ -100,7 +109,7 @@ class VideoRecorder:
             self.video_writer = cv2.VideoWriter(
                 self.output_filename,
                 cv2.VideoWriter_fourcc(*"mp4v"),
-                20.0,
+                30.0,
                 (self.width, self.height),
             )
             self.recording_start_time = datetime.now()
@@ -135,12 +144,20 @@ class VideoRecorder:
 
 
 def read_video_stream(vs, video_recorder, recording_duration):
-    while True:
-        frame = vs.get_latest_frame()
-        time.sleep(0.001)
-        if video_recorder.is_recording():
-            video_recorder.write_frame(frame)
+    def write_frame_thread():
+        while True:
+            if video_recorder.is_recording():
+                frame = vs.get_latest_frame()
+                if frame is not None:
+                    video_recorder.write_frame(frame)
+            time.sleep(0.001)  # Small delay to prevent busy-waiting
 
+    write_thread = threading.Thread(target=write_frame_thread)
+    write_thread.daemon = True
+    write_thread.start()
+
+    while True:
+        if video_recorder.is_recording():
             if video_recorder.get_elapsed_time() >= recording_duration:
                 video_recorder.stop_recording()
                 logging.debug(
@@ -149,6 +166,7 @@ def read_video_stream(vs, video_recorder, recording_duration):
                     recording_duration,
                 )
                 video_recorder.start_recording()
+        time.sleep(0.1)  # Check recording status less frequently
 
 
 def main():
@@ -209,8 +227,9 @@ def main():
 
 if __name__ == "__main__":
     time.sleep(1)
-    try:
-        main()
-    except Exception as e:
-        logging.debug("%s: Error", nicetime())
-        logging.error(e)
+    while True:
+        try:
+            main()
+        except Exception as e:
+            logging.error("%s: Error in main: %s", nicetime(), str(e))
+            time.sleep(10)  # Wait before restarting the main function
