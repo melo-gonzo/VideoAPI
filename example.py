@@ -59,9 +59,13 @@ class VideoStream:
             while self.cap.isOpened():
                 ret, frame = self.cap.read()
                 if ret:
-                    with self.frame_lock:
-                        self.frame_buffer.append(frame)
-                    self.frame_available.set()
+                    frame_hash = self._hash_frame(frame)
+                    if frame_hash != self.last_frame_hash:
+                        with self.frame_lock:
+                            self.frame_buffer.append((self.frame_counter, frame))
+                            self.frame_counter += 1
+                        self.last_frame_hash = frame_hash
+                        self.frame_available.set()
                 else:
                     logging.debug("%s: Frame not available in _read_frames, reinitializing capture", nicetime())
                     break  # Break the inner loop to reinitialize capture
@@ -69,10 +73,13 @@ class VideoStream:
             time.sleep(1)  # Short delay before retrying
 
 
+    def _hash_frame(self, frame):
+        return hash(frame.tobytes())
+
     def get_latest_frame(self):
         self.frame_available.wait()
         with self.frame_lock:
-            return self.frame_buffer[-1] if self.frame_buffer else None
+            return self.frame_buffer[-1] if self.frame_buffer else (None, None)
 
 class VideoRecorder:
     def __init__(self, width, height, output_folder, video_format):
@@ -85,6 +92,7 @@ class VideoRecorder:
         self.output_filename = None
         self.video_writer = None
         self.recording_start_time = None
+        self.last_written_frame_counter = -1
 
     @property
     def output_folder(self):
@@ -130,11 +138,12 @@ class VideoRecorder:
     def is_recording(self):
         return self.recording
 
-    def write_frame(self, frame):
-        if frame is not None:
+    def write_frame(self, frame_counter, frame):
+        if frame is not None and frame_counter > self.last_written_frame_counter:
             try:
                 frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
+                self.last_written_frame_counter = frame_counter
             except Exception:
                 logging.debug("%s: Failed to write frame in write_frame", nicetime())
                 pass
@@ -147,9 +156,9 @@ def read_video_stream(vs, video_recorder, recording_duration):
     def write_frame_thread():
         while True:
             if video_recorder.is_recording():
-                frame = vs.get_latest_frame()
+                frame_counter, frame = vs.get_latest_frame()
                 if frame is not None:
-                    video_recorder.write_frame(frame)
+                    video_recorder.write_frame(frame_counter, frame)
             time.sleep(0.001)  # Small delay to prevent busy-waiting
 
     write_thread = threading.Thread(target=write_frame_thread)
