@@ -1,19 +1,24 @@
 import sys
 
 sys.path.append("/usr/lib/python3/dist-packages")
-import sys
 import logging
 import os
+import sys
 import threading
 import time
-from datetime import datetime, timedelta
 from collections import deque
+from datetime import datetime, timedelta
+
 import cv2
 import yaml
+
 from creds import *
 
 os.environ["GST_DEBUG"] = "3"
-logging.basicConfig(filename="/home/carmelog/Desktop/video_recording.log", level=logging.DEBUG)
+logging.basicConfig(
+    filename="/home/carmelog/Desktop/video_recording.log", level=logging.DEBUG
+)
+
 
 def nicetime():
     return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -21,8 +26,7 @@ def nicetime():
 
 logging.debug("%s: Starting VideoAPI", nicetime())
 
-logging.getLogger().addHandler(logging.StreamHandler())
-
+# logging.getLogger().addHandler(logging.StreamHandler())
 
 
 class VideoStream:
@@ -64,20 +68,28 @@ class VideoStream:
                             self.frame_available.notify()
                     self.last_frame_diff = frame_diff
                 else:
-                    logging.debug("%s: Frame not available in _read_frames, reinitializing capture", nicetime())
+                    logging.debug(
+                        "%s: Frame not available in _read_frames, reinitializing capture",
+                        nicetime(),
+                    )
                     break  # Break the inner loop to reinitialize capture
             time.sleep(1)
 
     def _frame_difference(self, frame):
         if self.last_frame_diff is None:
             return 1000  # Arbitrary large number for the first frame
-        return cv2.norm(frame, self.frame_buffer[-1][1], cv2.NORM_L1) if self.frame_buffer else 1000
+        return (
+            cv2.norm(frame, self.frame_buffer[-1][1], cv2.NORM_L1)
+            if self.frame_buffer
+            else 1000
+        )
 
     def get_latest_frame(self):
         with self.frame_lock:
             while len(self.frame_buffer) == 0:
                 self.frame_available.wait()
             return self.frame_buffer[-1]
+
 
 class VideoRecorder:
     def __init__(self, width, height, output_folder, fourcc_codec, video_format):
@@ -115,7 +127,7 @@ class VideoRecorder:
             )
             self.video_writer = cv2.VideoWriter(
                 self.output_filename,
-                cv2.VideoWriter_fourcc(*self.fourcc_codec), 
+                cv2.VideoWriter_fourcc(*self.fourcc_codec),
                 30.0,
                 (self.width, self.height),
             )
@@ -131,13 +143,19 @@ class VideoRecorder:
         self.recording = False
 
     def write_frame(self, frame_counter, frame):
-        if self.recording and frame is not None and frame_counter > self.last_written_frame_counter:
+        if (
+            self.recording
+            and frame is not None
+            and frame_counter > self.last_written_frame_counter
+        ):
             try:
                 frame = cv2.resize(frame, (self.width, self.height))
                 self.video_writer.write(frame)
                 self.last_written_frame_counter = frame_counter
             except Exception as e:
-                logging.error(f"{nicetime()}: Failed to write frame in write_frame: {str(e)}")
+                logging.error(
+                    f"{nicetime()}: Failed to write frame in write_frame: {str(e)}"
+                )
 
     def get_elapsed_time(self):
         return datetime.now() - self.recording_start_time
@@ -168,6 +186,7 @@ def read_video_stream(vs, video_recorder, recording_duration):
                 video_recorder.start_recording()
         time.sleep(0.01)  # Check recording status less frequently
 
+
 def main():
     # Load parameters from YAML file
     with open("parameters.yaml", "r") as file:
@@ -192,7 +211,9 @@ def main():
     # output_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
 
     # Create VideoRecorder object
-    video_recorder = VideoRecorder(width, height, output_folder, fourcc_codec, video_format)
+    video_recorder = VideoRecorder(
+        width, height, output_folder, fourcc_codec, video_format
+    )
 
     thread = threading.Thread(
         target=read_video_stream, args=(vs, video_recorder, recording_duration)
