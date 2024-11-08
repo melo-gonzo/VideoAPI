@@ -1,6 +1,3 @@
-import sys
-
-sys.path.append("/usr/lib/python3/dist-packages")
 import logging
 import os
 import sys
@@ -14,8 +11,8 @@ import yaml
 
 from creds import *
 
-os.environ["OPENCV_FFMPEG_DEBUG"] = "1"
-os.environ["GST_DEBUG"] = "4"  # Increase from 3 to 4 for more detail
+# os.environ["OPENCV_FFMPEG_DEBUG"] = "1"
+# os.environ["GST_DEBUG"] = "4"  # Increase from 3 to 4 for more detail
 
 logging.basicConfig(
     filename="/home/carmelog/Media/NVR/video_recording.log", level=logging.DEBUG
@@ -28,18 +25,19 @@ def nicetime():
 
 logging.debug("%s: Starting VideoAPI", nicetime())
 
-# logging.getLogger().addHandler(logging.StreamHandler())
+logging.getLogger().addHandler(logging.StreamHandler())
 
 
 class VideoStream:
-    def __init__(self, video_address, buffer_size=3):
+    def __init__(self, video_address, buffer_size=30):  # Increased buffer size
         self.video_address = video_address
         self.cap = None
         self.frame_buffer = deque(maxlen=buffer_size)
         self.frame_counter = 0
-        self.last_frame_diff = None
+        self.last_frame_time = None
         self.frame_lock = threading.Lock()
         self.frame_available = threading.Condition(self.frame_lock)
+        self.running = True
         self.thread = threading.Thread(target=self._read_frames)
         self.thread.daemon = True
         self.thread.start()
@@ -54,43 +52,50 @@ class VideoStream:
         return True
 
     def _read_frames(self):
-        while True:
+        while self.running:
             if not self._initialize_capture():
-                time.sleep(5)  # Wait before retrying
+                time.sleep(5)
                 continue
 
-            while self.cap.isOpened():
+            while self.cap.isOpened() and self.running:
                 ret, frame = self.cap.read()
                 if ret:
-                    frame_diff = self._frame_difference(frame)
-                    if frame_diff > 100:  # Adjust threshold as needed
-                        with self.frame_lock:
-                            self.frame_buffer.append((self.frame_counter, frame))
-                            self.frame_counter += 1
-                            self.frame_available.notify()
-                    self.last_frame_diff = frame_diff
+                    current_time = time.time()
+                    with self.frame_lock:
+                        self.frame_buffer.append(
+                            (self.frame_counter, frame.copy(), current_time)
+                        )
+                        self.frame_counter += 1
+                        self.frame_available.notify()
+
+                    self.last_frame_time = current_time
                 else:
                     logging.debug(
-                        "%s: Frame not available in _read_frames, reinitializing capture",
-                        nicetime(),
+                        "%s: Frame not available, reinitializing capture", nicetime()
                     )
-                    break  # Break the inner loop to reinitialize capture
+                    break
+
+            if not self.running:
+                break
             time.sleep(1)
 
-    def _frame_difference(self, frame):
-        if self.last_frame_diff is None:
-            return 1000  # Arbitrary large number for the first frame
-        return (
-            cv2.norm(frame, self.frame_buffer[-1][1], cv2.NORM_L1)
-            if self.frame_buffer
-            else 1000
-        )
-
-    def get_latest_frame(self):
+    def get_latest_frames(self, last_frame_counter=-1):
+        """Get all frames since the last processed frame counter"""
         with self.frame_lock:
-            while len(self.frame_buffer) == 0:
-                self.frame_available.wait()
-            return self.frame_buffer[-1]
+            while len(self.frame_buffer) == 0 and self.running:
+                self.frame_available.wait(timeout=1.0)
+
+            # Return all frames newer than last_frame_counter
+            return [
+                frame for frame in self.frame_buffer if frame[0] > last_frame_counter
+            ]
+
+    def stop(self):
+        self.running = False
+        with self.frame_lock:
+            self.frame_available.notify_all()
+        if self.cap is not None:
+            self.cap.release()
 
 
 class VideoRecorder:
@@ -102,135 +107,101 @@ class VideoRecorder:
         self.fourcc_codec = fourcc_codec
         self.video_format = video_format
         self.recording = False
-        self.output_filename = None
         self.video_writer = None
         self.recording_start_time = None
         self.last_written_frame_counter = -1
-        self.frame_timestamp = 0.0
-        self.fps = 30.0
-        self.frame_time = 1.0 / self.fps
-
-    @property
-    def output_folder(self):
-        return self._output_folder
-
-    @output_folder.setter
-    def output_folder(self, value):
-        logging.debug("%s: Make output folder in output_folder", nicetime())
-        self._output_folder = datetime.now().strftime(value)
+        self.write_lock = threading.Lock()
+        self.write_thread = None
+        self.running = True
 
     def start_recording(self):
         try:
-            # Reset timing variables
-            self.frame_timestamp = 0.0
-            self.last_written_frame_counter = -1
-            
             current_time = datetime.now().strftime("%H-%M-%S")
-            self.output_folder = self.output_folder_base
+            self.output_folder = datetime.now().strftime(self.output_folder_base)
             os.makedirs(self.output_folder, exist_ok=True)
-            self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
-            
-            logging.debug("%s: Starting new recording: %s", nicetime(), self.output_filename)
-            
-            # Create temp video writer to force proper initialization
-            temp_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            
+            self.output_filename = (
+                f"{self.output_folder}/{current_time}_c.{self.video_format}"
+            )
+
             self.video_writer = cv2.VideoWriter(
                 self.output_filename,
                 cv2.VideoWriter_fourcc(*self.fourcc_codec),
-                self.fps,
+                30.0,
                 (self.width, self.height),
-                True  # isColor parameter explicitly set
             )
-            
-            # Write initial frame to properly initialize the video
-            if self.video_writer.isOpened():
-                self.video_writer.write(temp_frame)
-                self.frame_timestamp += self.frame_time
-            
             self.recording_start_time = datetime.now()
             self.recording = True
-            
-            logging.debug("%s: Recording started successfully", nicetime())
-            
+
+            # Start the write thread
+            if self.write_thread is None:
+                self.write_thread = threading.Thread(target=self._write_thread)
+                self.write_thread.daemon = True
+                self.write_thread.start()
+
+            logging.debug("%s: Recording started: %s", nicetime(), self.output_filename)
         except Exception as e:
             logging.error(f"{nicetime()}: Recording failed to start: {str(e)}")
+
+    def _write_thread(self):
+        while self.running:
+            if self.recording and hasattr(self, "frame_queue") and self.frame_queue:
+                try:
+                    frame_counter, frame, _ = self.frame_queue.popleft()
+                    if frame_counter > self.last_written_frame_counter:
+                        frame = cv2.resize(frame, (self.width, self.height))
+                        with self.write_lock:
+                            self.video_writer.write(frame)
+                        self.last_written_frame_counter = frame_counter
+                except Exception as e:
+                    logging.error(f"{nicetime()}: Failed to write frame: {str(e)}")
+            else:
+                time.sleep(0.001)
+
+    def write_frames(self, frames):
+        """Queue multiple frames for writing"""
+        if not hasattr(self, "frame_queue"):
+            self.frame_queue = deque()
+
+        for frame_data in frames:
+            self.frame_queue.append(frame_data)
+
+    def stop_recording(self):
+        self.recording = False
+        with self.write_lock:
             if self.video_writer is not None:
                 self.video_writer.release()
                 self.video_writer = None
+        logging.debug("%s: Recording stopped", nicetime())
 
-    def stop_recording(self):
-        if self.video_writer is not None:
-            try:
-                self.video_writer.release()
-                logging.debug("%s: Video writer released", nicetime())
-            except Exception as e:
-                logging.error(f"{nicetime()}: Error releasing video writer: {str(e)}")
-            finally:
-                self.video_writer = None
-                time.sleep(0.1)  # Small delay to ensure proper cleanup
-        self.recording = False
-
-    def write_frame(self, frame_counter, frame):
-        if (self.recording and 
-            frame is not None and 
-            frame_counter > self.last_written_frame_counter and 
-            self.video_writer is not None and 
-            self.video_writer.isOpened()):
-            
-            try:
-                # Ensure frame is in the correct format
-                if frame.dtype != np.uint8:
-                    frame = frame.astype(np.uint8)
-                
-                # Resize frame if necessary
-                if frame.shape[:2] != (self.height, self.width):
-                    frame = cv2.resize(frame, (self.width, self.height))
-                
-                # Ensure frame is BGR
-                if len(frame.shape) == 2:  # If grayscale
-                    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-                
-                # Write frame
-                self.video_writer.write(frame)
-                self.last_written_frame_counter = frame_counter
-                self.frame_timestamp += self.frame_time
-                
-            except Exception as e:
-                logging.error(f"{nicetime()}: Failed to write frame: {str(e)}")
-                # Try to recover by restarting the recording
-                self.stop_recording()
-                time.sleep(0.5)
-                self.start_recording()
+    def stop(self):
+        self.running = False
+        self.stop_recording()
+        if self.write_thread:
+            self.write_thread.join(timeout=1.0)
 
     def get_elapsed_time(self):
         return datetime.now() - self.recording_start_time
 
 
 def read_video_stream(vs, video_recorder, recording_duration):
-    def write_frame_thread():
+    try:
         while True:
             if video_recorder.recording:
-                frame_counter, frame = vs.get_latest_frame()
-                if frame is not None:
-                    video_recorder.write_frame(frame_counter, frame)
-            time.sleep(0.001)  # Small delay to prevent busy-waiting
-
-    write_thread = threading.Thread(target=write_frame_thread)
-    write_thread.daemon = True
-    write_thread.start()
-
-    while True:
-        if video_recorder.recording:
-            if video_recorder.get_elapsed_time() >= recording_duration:
-                video_recorder.stop_recording()
-                logging.debug(
-                    "%s: Recording stopped after %s seconds",
-                    nicetime(),
-                    recording_duration,
+                # Get all new frames since last written frame
+                new_frames = vs.get_latest_frames(
+                    video_recorder.last_written_frame_counter
                 )
-                video_recorder.start_recording()
-        time.sleep(0.01)  # Check recording status less frequently
+                if new_frames:
+                    video_recorder.write_frames(new_frames)
+
+                if video_recorder.get_elapsed_time() >= recording_duration:
+                    video_recorder.stop_recording()
+                    video_recorder.start_recording()
+
+            time.sleep(0.001)  # Small delay to prevent busy-waiting
+    except Exception as e:
+        logging.error(f"{nicetime()}: Error in read_video_stream: {str(e)}")
+        raise
 
 
 def main():
@@ -241,43 +212,37 @@ def main():
     # Get parameters from YAML
     width = params["window_width"]
     height = params["window_height"]
-    video_address = params["video_address"].format(user, password)
+    video_address = params["video_address"].format(user=user, password=password)
     output_folder = params["output_folder"]
     fourcc_codec = params["fourcc_codec"]
-    show_stream = params["show_stream"]
     video_format = params["video_format"]
     recording_duration = timedelta(seconds=params["recording_duration"])
 
     vs = VideoStream(video_address)
-    if show_stream:
-        cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Video Stream", width, height)
-
-    # Create the directory with the current date as the folder name
-    # output_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
-
-    # Create VideoRecorder object
     video_recorder = VideoRecorder(
         width, height, output_folder, fourcc_codec, video_format
     )
 
-    thread = threading.Thread(
-        target=read_video_stream, args=(vs, video_recorder, recording_duration)
-    )
-    thread.daemon = True
-    thread.start()
-
-    # Start recording
-    video_recorder.start_recording()
-
     try:
+        # Start recording
+        video_recorder.start_recording()
+
+        # Start the reading thread
+        read_thread = threading.Thread(
+            target=read_video_stream, args=(vs, video_recorder, recording_duration)
+        )
+        read_thread.daemon = True
+        read_thread.start()
+
+        # Main loop
         while True:
             time.sleep(1)
+
     except KeyboardInterrupt:
         print("Stopping the recording...")
     finally:
-        video_recorder.stop_recording()
-        vs.cap.release()
+        vs.stop()
+        video_recorder.stop()
         cv2.destroyAllWindows()
 
 
