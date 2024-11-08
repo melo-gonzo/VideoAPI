@@ -14,9 +14,11 @@ import yaml
 
 from creds import *
 
-os.environ["GST_DEBUG"] = "3"
+os.environ["OPENCV_FFMPEG_DEBUG"] = "1"
+os.environ["GST_DEBUG"] = "4"  # Increase from 3 to 4 for more detail
+
 logging.basicConfig(
-    filename="/home/carmelog/Desktop/video_recording.log", level=logging.DEBUG
+    filename="/home/carmelog/Media/NVR/video_recording.log", level=logging.DEBUG
 )
 
 
@@ -104,6 +106,9 @@ class VideoRecorder:
         self.video_writer = None
         self.recording_start_time = None
         self.last_written_frame_counter = -1
+        self.frame_timestamp = 0.0
+        self.fps = 30.0
+        self.frame_time = 1.0 / self.fps
 
     @property
     def output_folder(self):
@@ -116,46 +121,87 @@ class VideoRecorder:
 
     def start_recording(self):
         try:
+            # Reset timing variables
+            self.frame_timestamp = 0.0
+            self.last_written_frame_counter = -1
+            
             current_time = datetime.now().strftime("%H-%M-%S")
             self.output_folder = self.output_folder_base
             os.makedirs(self.output_folder, exist_ok=True)
-            self.output_filename = (
-                f"{self.output_folder}/{current_time}_c.{self.video_format}"
-            )
-            logging.debug(
-                "%s: Saving to: %s in start_recording", nicetime(), self.output_filename
-            )
+            self.output_filename = f"{self.output_folder}/{current_time}_c.{self.video_format}"
+            
+            logging.debug("%s: Starting new recording: %s", nicetime(), self.output_filename)
+            
+            # Create temp video writer to force proper initialization
+            temp_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            
             self.video_writer = cv2.VideoWriter(
                 self.output_filename,
                 cv2.VideoWriter_fourcc(*self.fourcc_codec),
-                30.0,
+                self.fps,
                 (self.width, self.height),
+                True  # isColor parameter explicitly set
             )
+            
+            # Write initial frame to properly initialize the video
+            if self.video_writer.isOpened():
+                self.video_writer.write(temp_frame)
+                self.frame_timestamp += self.frame_time
+            
             self.recording_start_time = datetime.now()
             self.recording = True
-            logging.debug("%s: Recording started in start_recording", nicetime())
+            
+            logging.debug("%s: Recording started successfully", nicetime())
+            
         except Exception as e:
             logging.error(f"{nicetime()}: Recording failed to start: {str(e)}")
+            if self.video_writer is not None:
+                self.video_writer.release()
+                self.video_writer = None
 
     def stop_recording(self):
         if self.video_writer is not None:
-            self.video_writer.release()
+            try:
+                self.video_writer.release()
+                logging.debug("%s: Video writer released", nicetime())
+            except Exception as e:
+                logging.error(f"{nicetime()}: Error releasing video writer: {str(e)}")
+            finally:
+                self.video_writer = None
+                time.sleep(0.1)  # Small delay to ensure proper cleanup
         self.recording = False
 
     def write_frame(self, frame_counter, frame):
-        if (
-            self.recording
-            and frame is not None
-            and frame_counter > self.last_written_frame_counter
-        ):
+        if (self.recording and 
+            frame is not None and 
+            frame_counter > self.last_written_frame_counter and 
+            self.video_writer is not None and 
+            self.video_writer.isOpened()):
+            
             try:
-                frame = cv2.resize(frame, (self.width, self.height))
+                # Ensure frame is in the correct format
+                if frame.dtype != np.uint8:
+                    frame = frame.astype(np.uint8)
+                
+                # Resize frame if necessary
+                if frame.shape[:2] != (self.height, self.width):
+                    frame = cv2.resize(frame, (self.width, self.height))
+                
+                # Ensure frame is BGR
+                if len(frame.shape) == 2:  # If grayscale
+                    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                
+                # Write frame
                 self.video_writer.write(frame)
                 self.last_written_frame_counter = frame_counter
+                self.frame_timestamp += self.frame_time
+                
             except Exception as e:
-                logging.error(
-                    f"{nicetime()}: Failed to write frame in write_frame: {str(e)}"
-                )
+                logging.error(f"{nicetime()}: Failed to write frame: {str(e)}")
+                # Try to recover by restarting the recording
+                self.stop_recording()
+                time.sleep(0.5)
+                self.start_recording()
 
     def get_elapsed_time(self):
         return datetime.now() - self.recording_start_time
