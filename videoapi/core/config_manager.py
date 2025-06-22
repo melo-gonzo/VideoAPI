@@ -87,10 +87,9 @@ class ConfigManager:
         Returns:
             Complete RTSP URL with credentials
         """
-        # Get URL template
         templates = self.credentials.get("templates", {})
         if template_name not in templates:
-            raise ValueError(f"Template '{template_name}' not found")
+            raise ValueError(f"URL template '{template_name}' not found")
 
         template = templates[template_name]
 
@@ -227,7 +226,9 @@ class ConfigManager:
 
             # Validate recording settings
             duration = self.get("recording.duration_seconds")
-            if not isinstance(duration, (int, float)) or duration <= 0:
+            if duration is not None and (
+                not isinstance(duration, (int, float)) or duration <= 0
+            ):
                 raise ValueError("recording.duration_seconds must be a positive number")
 
             fps = self.get("video.fps")

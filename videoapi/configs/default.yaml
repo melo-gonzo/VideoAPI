@@ -65,9 +65,9 @@ visualization:
   show_fps: true
   show_info: true
   show_recording_status: true
-  show_frame_counter: false
-  show_resolution: false
-  show_stream_fps: false
+  show_frame_counter: true
+  show_resolution: true
+  show_stream_fps: true
 
 # Logging configuration
 logging:

@@ -474,9 +474,7 @@ def main():
     )
 
     parser.add_argument("-c", "--config", type=str, help="Configuration file path")
-    parser.add_argument(
-        "--creds", type=str, help="Credentials file path"
-    )  # Add this line
+    parser.add_argument("--creds", type=str, help="Credentials file path")
     parser.add_argument(
         "-p", "--playback", type=str, help="Video file path for playback mode"
     )
@@ -497,8 +495,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Create application
-        app = VideoAPIApp(args.config)
+        # Create application with both config and creds paths
+        app = VideoAPIApp(args.config, args.creds)  # Fixed: pass both arguments
 
         # Override display setting if specified
         if args.no_display:
