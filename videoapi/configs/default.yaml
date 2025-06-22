@@ -43,7 +43,7 @@ recording:
   # Enable frame deduplication to avoid saving duplicate frames
   enable_deduplication: true
   # Similarity threshold for deduplication (0.0 to 1.0)
-  dedup_threshold: 0.95
+  dedup_threshold: 1.0
 
 # Frame processing settings
 processing:
@@ -72,7 +72,7 @@ visualization:
 # Logging configuration
 logging:
   # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  level: "INFO"
+  level: "DEBUG"
   # Log file path (null for no file logging)
   file: null
   # Enable console logging
