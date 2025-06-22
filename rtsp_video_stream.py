@@ -1,5 +1,4 @@
-import sys
-sys.path.append("/usr/lib/python3/dist-packages")
+# sys.path.append("/usr/lib/python3/dist-packages")
 
 import cv2
 from creds import *
@@ -29,7 +28,6 @@ class VideoStreamer:
             cv2.destroyAllWindows()
 
 
-
-ip = f"rtsp://{user}:{password}@192.168.1.19:554/cam/realmonitor?channel=1&subtype=1"
-
+# ip = f"rtsp://{user}:{password}@192.168.1.70:554/cam/realmonitor?channel=1&subtype=1"
+ip = "rtsp://admin:lunajake101@192.168.4.70:554/cam/realmonitor?channel=1&subtype=0"
 v = VideoStreamer(ip)

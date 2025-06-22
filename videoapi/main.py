@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import timedelta
 
-from .core.config_manager import ConfigManager
-from .core.video_stream import VideoStream
-from .core.video_recorder import VideoRecorder
-from .core.frame_processor import FrameProcessor
-from .core.playback_manager import PlaybackManager
-from .algorithms.frame_deduplicator import FrameDeduplicator
-from .visualization.stream_viewer import StreamViewer
-from .utils.logging_config import setup_logging, get_logger
+from videoapi.core.config_manager import ConfigManager
+from videoapi.core.video_stream import VideoStream
+from videoapi.core.video_recorder import VideoRecorder
+from videoapi.core.frame_processor import FrameProcessor
+from videoapi.core.playback_manager import PlaybackManager
+from videoapi.algorithms.frame_deduplicator import FrameDeduplicator
+from videoapi.visualization.stream_viewer import StreamViewer
+from videoapi.utils.logging_config import setup_logging, get_logger
 
 logger = get_logger("main")
 
@@ -23,13 +23,16 @@ logger = get_logger("main")
 class VideoAPIApp:
     """Main VideoAPI application coordinator."""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(
+        self, config_path: Optional[str] = None, creds_path: Optional[str] = None
+    ):
         """Initialize VideoAPI application.
 
         Args:
             config_path: Path to configuration file
+            creds_path: Path to credentials file
         """
-        self.config = ConfigManager(config_path)
+        self.config = ConfigManager(config_path, creds_path)  # Pass both paths
 
         # Validate configuration
         if not self.config.validate():
@@ -63,12 +66,17 @@ class VideoAPIApp:
         """Setup components for live video processing."""
         self.mode = "live"
 
-        # Initialize video stream
+        # Get resolved video address with credentials
+        video_address = self.config.get_video_address()
+
+        # Initialize video stream with output resolution
         self.video_stream = VideoStream(
-            video_address=self.config.get("video.address"),
+            video_address=video_address,  # Use resolved address
             buffer_size=self.config.get("video.buffer_size", 30),
             reconnect_delay=5.0,
             max_reconnect_attempts=-1,
+            output_width=self.config.get("video.width"),
+            output_height=self.config.get("video.height"),
         )
 
         # Initialize video recorder if recording is enabled
@@ -105,12 +113,25 @@ class VideoAPIApp:
 
         # Initialize stream viewer if visualization is enabled
         if self.config.get("visualization.show_stream", False):
+            # Use video dimensions as default window size
+            video_width = self.config.get("video.width", 640)
+            video_height = self.config.get("video.height", 360)
+
             self.stream_viewer = StreamViewer(
                 window_title=self.config.get(
                     "visualization.window_title", "VideoAPI Stream"
                 ),
-                fps_display=True,
-                info_display=True,
+                window_size=(video_width, video_height),  # Set default window size
+                show_fps=self.config.get("visualization.show_fps", True),
+                show_info=self.config.get("visualization.show_info", True),
+                show_recording_status=self.config.get(
+                    "visualization.show_recording_status", True
+                ),
+                show_frame_counter=self.config.get(
+                    "visualization.show_frame_counter", False
+                ),
+                show_resolution=self.config.get("visualization.show_resolution", False),
+                show_stream_fps=self.config.get("visualization.show_stream_fps", False),
             )
             self.stream_viewer.set_key_callback(self._handle_key_press)
 
@@ -137,8 +158,6 @@ class VideoAPIApp:
         if self.config.get("visualization.show_stream", False):
             self.stream_viewer = StreamViewer(
                 window_title=f"VideoAPI Playback - {Path(video_path).name}",
-                fps_display=True,
-                info_display=True,
             )
             self.stream_viewer.set_key_callback(self._handle_playback_key_press)
 
@@ -455,6 +474,9 @@ def main():
     )
 
     parser.add_argument("-c", "--config", type=str, help="Configuration file path")
+    parser.add_argument(
+        "--creds", type=str, help="Credentials file path"
+    )  # Add this line
     parser.add_argument(
         "-p", "--playback", type=str, help="Video file path for playback mode"
     )

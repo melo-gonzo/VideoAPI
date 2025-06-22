@@ -6,6 +6,7 @@ import time
 from collections import deque
 from typing import List, Tuple, Optional, Dict, Any
 import numpy as np
+from videoapi.utils.frame_utils import resize_frame
 
 from videoapi.utils.logging_config import get_logger
 
@@ -21,6 +22,8 @@ class VideoStream:
         buffer_size: int = 30,
         reconnect_delay: float = 5.0,
         max_reconnect_attempts: int = -1,
+        output_width: Optional[int] = None,
+        output_height: Optional[int] = None,
     ):
         """Initialize video stream.
 
@@ -29,11 +32,15 @@ class VideoStream:
             buffer_size: Maximum number of frames to buffer
             reconnect_delay: Delay between reconnection attempts in seconds
             max_reconnect_attempts: Maximum reconnection attempts (-1 for unlimited)
+            output_width: Resize frames to this width (None to keep original)
+            output_height: Resize frames to this height (None to keep original)
         """
         self.video_address = video_address
         self.buffer_size = buffer_size
         self.reconnect_delay = reconnect_delay
         self.max_reconnect_attempts = max_reconnect_attempts
+        self.output_width = output_width
+        self.output_height = output_height
 
         # Video capture
         self.cap = None
@@ -72,19 +79,35 @@ class VideoStream:
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
 
-        # Wait a moment to see if initialization succeeds
-        time.sleep(0.5)
+        # Wait longer for initialization and check multiple times
+        max_wait_time = 10.0  # Maximum time to wait for initialization
+        check_interval = 0.5  # Check every 500ms
+        elapsed_time = 0.0
 
-        with self.frame_lock:
-            success = len(self.frame_buffer) > 0 or self.cap is not None
+        while elapsed_time < max_wait_time:
+            time.sleep(check_interval)
+            elapsed_time += check_interval
 
-        if success:
-            logger.info("Video stream started successfully")
-        else:
-            logger.error("Failed to start video stream")
-            self.stop()
+            with self.frame_lock:
+                # Check if we have frames or if capture is initialized
+                if len(self.frame_buffer) > 0:
+                    logger.info("Video stream started successfully")
+                    return True
 
-        return success
+                # Also check if we have a working capture object
+                if self.cap is not None and self.cap.isOpened():
+                    # Give it a bit more time to get frames
+                    if elapsed_time >= 2.0:  # At least 2 seconds for first frame
+                        logger.info(
+                            "Video stream capture initialized, waiting for frames..."
+                        )
+                        return True
+
+        logger.error(
+            "Failed to start video stream - timeout waiting for initialization"
+        )
+        self.stop()
+        return False
 
     def stop(self) -> None:
         """Stop video stream capture."""
@@ -111,6 +134,7 @@ class VideoStream:
 
     def _capture_loop(self) -> None:
         """Main capture loop running in separate thread."""
+
         while self.running:
             if not self._initialize_capture():
                 if self._should_reconnect():
@@ -127,6 +151,12 @@ class VideoStream:
                 ret, frame = self.cap.read()
 
                 if ret and frame is not None:
+                    # Resize frame if output dimensions are specified
+                    if self.output_width and self.output_height:
+                        frame = resize_frame(
+                            frame, self.output_width, self.output_height
+                        )
+
                     current_time = time.time()
 
                     with self.frame_lock:
@@ -156,23 +186,34 @@ class VideoStream:
             if self.cap is not None:
                 self.cap.release()
 
-            logger.debug(f"Attempting to connect to {self.video_address}")
+            logger.info(f"Attempting to connect to {self.video_address}")
             self.cap = cv2.VideoCapture(self.video_address)
 
             if not self.cap.isOpened():
-                logger.warning(f"Failed to open video capture for {self.video_address}")
+                logger.error(f"Failed to open video capture for {self.video_address}")
+                logger.error(
+                    "Possible issues: incorrect URL, network connectivity, or unsupported format"
+                )
+                return False
+
+            # Try to read one frame to verify the stream works
+            ret, frame = self.cap.read()
+            if not ret or frame is None:
+                logger.error(
+                    f"Video capture opened but cannot read frames from {self.video_address}"
+                )
                 return False
 
             # Get stream information
             self._update_stream_info()
 
             logger.info("Video capture initialized successfully")
-            logger.debug(f"Stream info: {self.stream_info}")
+            logger.info(f"Stream info: {self.stream_info}")
 
             return True
 
         except Exception as e:
-            logger.error(f"Error initializing video capture: {e}")
+            logger.error(f"Exception during video capture initialization: {e}")
             return False
 
     def _update_stream_info(self) -> None:
@@ -291,3 +332,14 @@ class VideoStream:
             "is_connected": self.is_connected(),
             "stream_info": self.stream_info,
         }
+
+    def get_effective_resolution(self) -> Tuple[int, int]:
+        """Get the effective output resolution (after any resizing).
+
+        Returns:
+            (width, height) tuple
+        """
+        if self.output_width and self.output_height:
+            return (self.output_width, self.output_height)
+        else:
+            return (self.stream_info.get("width", 0), self.stream_info.get("height", 0))

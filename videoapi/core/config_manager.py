@@ -12,15 +12,125 @@ logger = get_logger("config")
 class ConfigManager:
     """Manages configuration loading and validation."""
 
-    def __init__(self, config_path: Optional[Union[str, Path]] = None):
+    def __init__(
+        self,
+        config_path: Optional[Union[str, Path]] = None,
+        creds_path: Optional[Union[str, Path]] = None,
+    ):
         """Initialize ConfigManager.
 
         Args:
             config_path: Path to configuration file
+            creds_path: Path to credentials file
         """
         self.config_path = config_path
+        self.creds_path = creds_path
         self.config = {}
+        self.credentials = {}
+
         self._load_config()
+        self._load_credentials()
+
+    def _load_credentials(self) -> None:
+        """Load credentials from file."""
+        if self.creds_path is None:
+            logger.info("No credentials file found")
+            return
+
+        try:
+            with open(self.creds_path, "r") as file:
+                self.credentials = yaml.safe_load(file) or {}
+            logger.info(f"Loaded credentials from {self.creds_path}")
+        except FileNotFoundError:
+            logger.warning(f"Credentials file not found: {self.creds_path}")
+            self.credentials = {}
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing credentials YAML: {e}")
+            self.credentials = {}
+        except Exception as e:
+            logger.error(f"Error loading credentials: {e}")
+            self.credentials = {}
+
+    def get_camera_credentials(self, camera_id: str) -> Dict[str, str]:
+        """Get credentials for a specific camera.
+
+        Args:
+            camera_id: Camera identifier
+
+        Returns:
+            Dictionary with username and password
+        """
+        cameras = self.credentials.get("cameras", {})
+
+        if camera_id in cameras:
+            creds = cameras[camera_id]
+            return {
+                "username": creds.get("username", ""),
+                "password": creds.get("password", ""),
+            }
+
+        # Fall back to default credentials
+        default_creds = self.credentials.get("default", {})
+        return {
+            "username": default_creds.get("username", ""),
+            "password": default_creds.get("password", ""),
+        }
+
+    def build_rtsp_url(self, template_name: str, camera_id: str, **kwargs) -> str:
+        """Build RTSP URL using template and credentials.
+
+        Args:
+            template_name: Name of URL template to use
+            camera_id: Camera identifier for credentials
+            **kwargs: Additional parameters for URL template
+
+        Returns:
+            Complete RTSP URL with credentials
+        """
+        # Get URL template
+        templates = self.credentials.get("templates", {})
+        if template_name not in templates:
+            raise ValueError(f"Template '{template_name}' not found")
+
+        template = templates[template_name]
+
+        # Get credentials
+        creds = self.get_camera_credentials(camera_id)
+
+        # Combine credentials with other parameters
+        url_params = {**creds, **kwargs}
+
+        try:
+            return template.format(**url_params)
+        except KeyError as e:
+            raise ValueError(f"Missing parameter for URL template: {e}")
+
+    def build_simple_rtsp_url(
+        self,
+        ip: str,
+        camera_id: str = "default",
+        port: int = 554,
+        path: str = "",
+        **kwargs,
+    ) -> str:
+        """Build a simple RTSP URL with credentials.
+
+        Args:
+            ip: Camera IP address
+            camera_id: Camera identifier for credentials
+            port: RTSP port (default 554)
+            path: URL path after the port
+            **kwargs: Additional parameters
+
+        Returns:
+            Complete RTSP URL
+        """
+        creds = self.get_camera_credentials(camera_id)
+
+        if path:
+            return f"rtsp://{creds['username']}:{creds['password']}@{ip}:{port}/{path}"
+        else:
+            return f"rtsp://{creds['username']}:{creds['password']}@{ip}:{port}"
 
     def _load_config(self) -> None:
         """Load configuration from file."""
@@ -151,3 +261,44 @@ class ConfigManager:
             yaml.dump(self.config, file, default_flow_style=False, indent=2)
 
         logger.info(f"Configuration saved to {save_path}")
+
+    def get_video_address(self) -> str:
+        """Get the resolved video address with credentials.
+
+        Returns:
+            Complete video source address
+        """
+        source_config = self.get("video.source")
+
+        if not source_config:
+            # Fallback to legacy direct address
+            return self.get("video.address", "")
+
+        source_type = source_config.get("type", "direct")
+
+        if source_type == "direct":
+            return source_config.get("address", "")
+
+        elif source_type == "rtsp_simple":
+            return self.build_simple_rtsp_url(
+                ip=source_config["ip"],
+                camera_id=source_config.get("camera_id", "default"),
+                port=source_config.get("port", 554),
+                path=source_config.get("path", ""),
+            )
+
+        elif source_type == "rtsp_template":
+            template_params = {
+                k: v
+                for k, v in source_config.items()
+                if k not in ["type", "template", "camera_id"]
+            }
+
+            return self.build_rtsp_url(
+                template_name=source_config["template"],
+                camera_id=source_config.get("camera_id", "default"),
+                **template_params,
+            )
+
+        else:
+            raise ValueError(f"Unknown video source type: {source_type}")

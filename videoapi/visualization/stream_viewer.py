@@ -18,21 +18,38 @@ class StreamViewer:
         self,
         window_title: str = "VideoAPI Stream",
         window_size: Optional[Tuple[int, int]] = None,
-        fps_display: bool = True,
-        info_display: bool = True,
+        show_fps: bool = True,
+        show_info: bool = True,
+        show_recording_status: bool = True,
+        show_frame_counter: bool = False,
+        show_resolution: bool = False,
+        show_stream_fps: bool = False,
     ):
         """Initialize stream viewer.
 
         Args:
             window_title: Title of the display window
             window_size: (width, height) for window size, None for auto
-            fps_display: Whether to display FPS counter
-            info_display: Whether to display stream info overlay
+            show_fps: Whether to display FPS counter
+            show_info: Whether to display stream info overlay
+            show_recording_status: Whether to show recording indicator
+            show_frame_counter: Whether to show frame counter
+            show_resolution: Whether to show resolution
+            show_stream_fps: Whether to show stream FPS
         """
         self.window_title = window_title
         self.window_size = window_size
-        self.fps_display = fps_display
-        self.info_display = info_display
+        self.show_fps = show_fps
+        self.show_info = show_info
+        self.show_recording_status = show_recording_status
+        self.show_frame_counter = show_frame_counter
+        self.show_resolution = show_resolution
+        self.show_stream_fps = show_stream_fps
+
+        self.window_title = window_title
+        self.window_size = window_size
+        # self.fps_display = fps_display
+        # self.info_display = info_display
 
         # Display state
         self.showing = False
@@ -119,7 +136,7 @@ class StreamViewer:
                 display_frame = frame.copy()
 
                 # Add overlays
-                if self.fps_display or self.info_display:
+                if self.show_fps or self.show_info:  # Updated condition
                     display_frame = self._add_overlays(display_frame, frame_info)
 
                 self.current_frame = display_frame
@@ -196,15 +213,7 @@ class StreamViewer:
     def _add_overlays(
         self, frame: np.ndarray, frame_info: Optional[Dict[str, Any]] = None
     ) -> np.ndarray:
-        """Add information overlays to frame.
-
-        Args:
-            frame: Input frame
-            frame_info: Frame metadata
-
-        Returns:
-            Frame with overlays added
-        """
+        """Add information overlays to frame."""
         overlay_frame = frame.copy()
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.6
@@ -219,7 +228,7 @@ class StreamViewer:
 
         try:
             # FPS display
-            if self.fps_display:
+            if self.show_fps:
                 fps_text = f"FPS: {self.display_fps:.1f}"
                 self._draw_text_with_background(
                     overlay_frame,
@@ -233,10 +242,9 @@ class StreamViewer:
                 )
                 y_offset += line_height
 
-            # Stream info display
-            if self.info_display:
+            if self.show_info:
                 # Frame counter
-                if frame_info and "counter" in frame_info:
+                if self.show_frame_counter and frame_info and "counter" in frame_info:
                     counter_text = f"Frame: {frame_info['counter']}"
                     self._draw_text_with_background(
                         overlay_frame,
@@ -251,53 +259,55 @@ class StreamViewer:
                     y_offset += line_height
 
                 # Stream resolution
-                height, width = frame.shape[:2]
-                res_text = f"Resolution: {width}x{height}"
-                self._draw_text_with_background(
-                    overlay_frame,
-                    res_text,
-                    (10, y_offset),
-                    font,
-                    font_scale,
-                    text_color,
-                    background_color,
-                    thickness,
-                )
-                y_offset += line_height
-
-                # Recording status
-                if self.recording_info.get("is_recording", False):
-                    rec_text = "● REC"
-                    rec_color = (0, 0, 255)  # Red
+                if self.show_resolution:
+                    height, width = frame.shape[:2]
+                    res_text = f"Resolution: {width}x{height}"
                     self._draw_text_with_background(
                         overlay_frame,
-                        rec_text,
+                        res_text,
                         (10, y_offset),
                         font,
                         font_scale,
-                        rec_color,
-                        background_color,
-                        thickness,
-                    )
-                    y_offset += line_height
-
-                # Additional stream info
-                for key, value in self.stream_info.items():
-                    if key in ["fps", "width", "height"]:  # Already displayed
-                        continue
-
-                    info_text = f"{key}: {value}"
-                    self._draw_text_with_background(
-                        overlay_frame,
-                        info_text,
-                        (10, y_offset),
-                        font,
-                        font_scale * 0.8,
                         text_color,
                         background_color,
                         thickness,
                     )
                     y_offset += line_height
+
+                # Stream FPS
+                if self.show_stream_fps:
+                    stream_fps = self.stream_info.get("fps")
+                    if stream_fps and stream_fps > 0:
+                        stream_fps_text = f"Stream FPS: {stream_fps:.1f}"
+                        self._draw_text_with_background(
+                            overlay_frame,
+                            stream_fps_text,
+                            (10, y_offset),
+                            font,
+                            font_scale,
+                            text_color,
+                            background_color,
+                            thickness,
+                        )
+                        y_offset += line_height
+
+            # Recording status (separate from show_info)
+            if self.show_recording_status and self.recording_info.get(
+                "is_recording", False
+            ):
+                rec_text = "● REC"
+                rec_color = (0, 0, 255)  # Red
+                self._draw_text_with_background(
+                    overlay_frame,
+                    rec_text,
+                    (10, y_offset),
+                    font,
+                    font_scale,
+                    rec_color,
+                    background_color,
+                    thickness,
+                )
+                y_offset += line_height
 
         except Exception as e:
             logger.error(f"Error adding overlays: {e}")
