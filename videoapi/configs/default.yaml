@@ -1,0 +1,49 @@
+# VideoAPI Default Configuration
+
+# Video source settings
+video:
+  width: 640
+  height: 360
+  fps: 30.0
+  # Video source address - supports RTSP, HTTP streams, or file paths
+  address: "http://192.168.1.100/mjpeg/1"
+  # Buffer size for frame buffering
+  buffer_size: 30
+
+# Recording settings
+recording:
+  # Output folder with strftime formatting support
+  output_folder: "./recordings/%Y-%m-%d"
+  # Recording duration in seconds before rotating to new file (null for no rotation)
+  duration_seconds: 120
+  # Video codec (mp4v, avc1, XVID, etc.)
+  fourcc_codec: "mp4v"
+  # Video file format/extension
+  video_format: "mp4"
+  # Enable frame deduplication to avoid saving duplicate frames
+  enable_deduplication: true
+  # Similarity threshold for deduplication (0.0 to 1.0)
+  dedup_threshold: 0.95
+
+# Frame processing settings
+processing:
+  # Enable frame processing pipeline
+  enable_processing: false
+  # List of algorithms to run (configured separately)
+  algorithms: []
+
+# Visualization settings
+visualization:
+  # Show live video stream
+  show_stream: true
+  # Window title for display
+  window_title: "VideoAPI Stream"
+
+# Logging configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  # Log file path (null for no file logging)
+  file: null
+  # Enable console logging
+  enable_console: true

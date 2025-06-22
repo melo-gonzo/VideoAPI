@@ -1,0 +1,28 @@
+# Playback Configuration Example
+
+video:
+  width: 640
+  height: 480
+  fps: 30.0
+  address: "" # Not used in playback mode
+  buffer_size: 10
+
+recording:
+  output_folder: "./playback_exports/%Y-%m-%d"
+  duration_seconds: null # No rotation during playback
+  fourcc_codec: "mp4v"
+  video_format: "mp4"
+  enable_deduplication: false # Usually not needed for playback
+
+processing:
+  enable_processing: true
+  algorithms: []
+
+visualization:
+  show_stream: true
+  window_title: "VideoAPI Playback"
+
+logging:
+  level: "DEBUG"
+  file: "./logs/playback.log"
+  enable_console: true
