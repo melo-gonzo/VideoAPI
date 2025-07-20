@@ -1,0 +1,14 @@
+configs/creds.yaml
+*cred*
+*pycache*
+*secret*
+*txt*
+*old*
+*other*
+parameters*.yaml
+motion_demo.py
+esp32.sh
+params.py
+settings.yaml
+.DS_Store
+venv

@@ -1,0 +1,79 @@
+# VideoAPI Default Configuration
+
+# Video source settings
+video:
+  width: 640
+  height: 360
+  fps: 30.0
+  # Video source address - supports RTSP, HTTP streams, or file paths
+  source:
+    # Method 1: Direct URL (no credentials needed)
+    # address: "http://192.168.1.100/mjpeg/1"
+    # Method 2: Simple RTSP with credentials
+    # type: "rtsp_simple"
+    # ip: "192.168.4.70"
+    # port: 554
+    # path: "cam/realmonitor?channel=1&subtype=0"
+    # camera_id: "camera1"  # References credentials in creds.yaml
+    # Method 3: Template-based URL construction
+    type: "rtsp_template"
+    template: "amcrest"
+    camera_id: "amcrest1"
+    ip: "192.168.4.70"
+    port: 554
+    channel: 1
+    subtype: 0
+    # Method 4: Direct address (fallback)
+    # type: "direct"
+    # address: "rtsp://admin:password@192.168.4.70:554/cam/realmonitor?channel=1&subtype=0"
+
+  # Buffer size for frame buffering
+  buffer_size: 30
+
+# Recording settings
+recording:
+  # Output folder with strftime formatting support
+  output_folder: "./recordings/%Y-%m-%d"
+  # Recording duration in seconds before rotating to new file (null for no rotation)
+  duration_seconds: 120
+  # Video codec (mp4v, avc1, XVID, etc.)
+  fourcc_codec: "mp4v"
+  # Video file format/extension
+  video_format: "mp4"
+  # Enable frame deduplication to avoid saving duplicate frames
+  enable_deduplication: true
+  # Similarity threshold for deduplication (0.0 to 1.0)
+  dedup_threshold: 1.0
+
+# Frame processing settings
+processing:
+  # Enable frame processing pipeline
+  enable_processing: false
+  # List of algorithms to run (configured separately)
+  algorithms: []
+
+# Visualization settings
+visualization:
+  # Show live video stream
+  show_stream: true
+  # Window title for display
+  window_title: "VideoAPI Stream"
+  # Window size (null to use video dimensions)
+  window_width: null
+  window_height: null
+  # Display overlays
+  show_fps: true
+  show_info: true
+  show_recording_status: true
+  show_frame_counter: true
+  show_resolution: true
+  show_stream_fps: true
+
+# Logging configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "DEBUG"
+  # Log file path (null for no file logging)
+  file: null
+  # Enable console logging
+  enable_console: true

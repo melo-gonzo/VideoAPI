@@ -1,0 +1,29 @@
+# NVR (Network Video Recorder) Configuration Example
+
+video:
+  width: 1920
+  height: 1080
+  fps: 25.0
+  address: "rtsp://admin:password@192.168.1.100:554/cam/realmonitor?channel=1&subtype=0"
+  buffer_size: 60
+
+recording:
+  output_folder: "/var/recordings/camera1/%Y-%m-%d"
+  duration_seconds: 300 # 5 minute segments
+  fourcc_codec: "avc1"
+  video_format: "mp4"
+  enable_deduplication: true
+  dedup_threshold: 0.98 # Higher threshold for security cameras
+
+processing:
+  enable_processing: true
+  algorithms: []
+
+visualization:
+  show_stream: false # Headless operation
+  window_title: "Security Camera 1"
+
+logging:
+  level: "INFO"
+  file: "/var/log/videoapi/camera1.log"
+  enable_console: false
